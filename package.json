@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "description": "Automated setup for Claude Code channel plugins (Discord, Telegram)",
   "type": "module",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "bin": {
     "claude-channel-setup": "./dist/index.js"
   },
