@@ -7,7 +7,7 @@ describe("Telegram channel", () => {
       vi.restoreAllMocks();
     });
 
-    it("token 有效時回傳 bot 資訊", async () => {
+    it("returns bot info when token is valid", async () => {
       const mockResponse = {
         ok: true,
         json: async () => ({
@@ -37,7 +37,7 @@ describe("Telegram channel", () => {
       );
     });
 
-    it("token 無效時回傳錯誤（HTTP 失敗）", async () => {
+    it("returns an error when token is invalid (HTTP failure)", async () => {
       const mockResponse = {
         ok: false,
         status: 401,
@@ -49,11 +49,11 @@ describe("Telegram channel", () => {
 
       expect(result).toEqual({
         valid: false,
-        error: "Token 無效 (401 Unauthorized)",
+        error: "Invalid token (401 Unauthorized)",
       });
     });
 
-    it("Telegram API 回傳 ok: false 時回傳錯誤", async () => {
+    it("returns an error when Telegram API responds with ok: false", async () => {
       const mockResponse = {
         ok: true,
         json: async () => ({
@@ -67,11 +67,11 @@ describe("Telegram channel", () => {
 
       expect(result).toEqual({
         valid: false,
-        error: "Telegram API 錯誤: Not Found",
+        error: "Telegram API error: Not Found",
       });
     });
 
-    it("網路錯誤時回傳錯誤", async () => {
+    it("returns an error on network failure", async () => {
       vi.stubGlobal(
         "fetch",
         vi.fn().mockRejectedValue(new Error("Network error")),
@@ -81,7 +81,7 @@ describe("Telegram channel", () => {
 
       expect(result).toEqual({
         valid: false,
-        error: "無法連線到 Telegram API: Network error",
+        error: "Unable to connect to Telegram API: Network error",
       });
     });
   });

@@ -7,7 +7,7 @@ import {
 
 describe("Discord channel", () => {
   describe("DISCORD_PERMISSIONS", () => {
-    it("包含所有必要權限", () => {
+    it("contains all required permissions", () => {
       expect(DISCORD_PERMISSIONS).toEqual({
         VIEW_CHANNELS: 1024n,
         SEND_MESSAGES: 2048n,
@@ -18,7 +18,7 @@ describe("Discord channel", () => {
       });
     });
 
-    it("計算出正確的權限 integer", () => {
+    it("computes the correct permission integer", () => {
       const total = Object.values(DISCORD_PERMISSIONS).reduce(
         (sum, p) => sum + p,
         0n,
@@ -32,7 +32,7 @@ describe("Discord channel", () => {
       vi.restoreAllMocks();
     });
 
-    it("token 有效時回傳 bot 資訊", async () => {
+    it("returns bot info when token is valid", async () => {
       const mockResponse = {
         ok: true,
         json: async () => ({
@@ -57,7 +57,7 @@ describe("Discord channel", () => {
       );
     });
 
-    it("token 無效時回傳錯誤", async () => {
+    it("returns an error when token is invalid", async () => {
       const mockResponse = {
         ok: false,
         status: 401,
@@ -69,11 +69,11 @@ describe("Discord channel", () => {
 
       expect(result).toEqual({
         valid: false,
-        error: "Token 無效 (401 Unauthorized)",
+        error: "Invalid token (401 Unauthorized)",
       });
     });
 
-    it("網路錯誤時回傳錯誤", async () => {
+    it("returns an error on network failure", async () => {
       vi.stubGlobal(
         "fetch",
         vi.fn().mockRejectedValue(new Error("Network error")),
@@ -83,13 +83,13 @@ describe("Discord channel", () => {
 
       expect(result).toEqual({
         valid: false,
-        error: "無法連線到 Discord API: Network error",
+        error: "Unable to connect to Discord API: Network error",
       });
     });
   });
 
   describe("generateInviteUrl", () => {
-    it("生成包含正確權限和 scope 的 URL", () => {
+    it("generates a URL with correct permissions and scope", () => {
       const url = generateInviteUrl("123456789");
 
       const parsed = new URL(url);
@@ -101,8 +101,8 @@ describe("Discord channel", () => {
       expect(parsed.searchParams.get("permissions")).toBe("274878008384");
     });
 
-    it("空的 client_id 會拋出錯誤", () => {
-      expect(() => generateInviteUrl("")).toThrow("client_id 不可為空");
+    it("throws an error for empty client_id", () => {
+      expect(() => generateInviteUrl("")).toThrow("client_id must not be empty");
     });
   });
 });

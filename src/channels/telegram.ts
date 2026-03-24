@@ -1,4 +1,4 @@
-// Claude Code Telegram Channel 設定模組
+// Claude Code Telegram channel setup module
 
 export interface TelegramBotInfo {
   id: number;
@@ -10,7 +10,7 @@ export type TelegramTokenResult =
   | { valid: true; bot: TelegramBotInfo }
   | { valid: false; error: string };
 
-/** 透過 Telegram Bot API 驗證 token 是否有效 */
+/** Validate token via the Telegram Bot API */
 export async function validateTelegramToken(
   token: string,
 ): Promise<TelegramTokenResult> {
@@ -22,7 +22,7 @@ export async function validateTelegramToken(
     if (!response.ok) {
       return {
         valid: false,
-        error: `Token 無效 (${response.status} ${response.statusText})`,
+        error: `Invalid token (${response.status} ${response.statusText})`,
       };
     }
 
@@ -35,7 +35,7 @@ export async function validateTelegramToken(
     if (!data.ok) {
       return {
         valid: false,
-        error: `Telegram API 錯誤: ${data.description ?? "Unknown error"}`,
+        error: `Telegram API error: ${data.description ?? "Unknown error"}`,
       };
     }
 
@@ -46,6 +46,6 @@ export async function validateTelegramToken(
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { valid: false, error: `無法連線到 Telegram API: ${message}` };
+    return { valid: false, error: `Unable to connect to Telegram API: ${message}` };
   }
 }

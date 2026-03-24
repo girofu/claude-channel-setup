@@ -7,8 +7,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-describe("整合測試：Discord 真實 API", () => {
-  it("無效 token 打真實 Discord API 回傳 401", async () => {
+describe("Integration test: Discord real API", () => {
+  it("returns 401 for invalid token against real Discord API", async () => {
     const result = await validateDiscordToken("invalid-token-12345");
     expect(result.valid).toBe(false);
     if (!result.valid) {
@@ -16,41 +16,41 @@ describe("整合測試：Discord 真實 API", () => {
     }
   }, 10000);
 
-  it("空 token 打真實 Discord API 回傳錯誤", async () => {
+  it("returns an error for empty token against real Discord API", async () => {
     const result = await validateDiscordToken("");
     expect(result.valid).toBe(false);
   }, 10000);
 
-  it("生成的邀請 URL 格式正確且可解析", () => {
+  it("generates a valid and parseable invite URL", () => {
     const url = generateInviteUrl("1234567890");
     const parsed = new URL(url);
     expect(parsed.hostname).toBe("discord.com");
     expect(parsed.pathname).toBe("/oauth2/authorize");
     expect(parsed.searchParams.get("client_id")).toBe("1234567890");
     expect(parsed.searchParams.get("scope")).toBe("bot");
-    // 確認權限 integer 是數字且為正確值
+    // Verify the permission integer is correct
     const perms = BigInt(parsed.searchParams.get("permissions")!);
     expect(perms).toBe(274878008384n);
   });
 });
 
-describe("整合測試：Telegram 真實 API", () => {
-  it("無效 token 打真實 Telegram API 回傳錯誤", async () => {
+describe("Integration test: Telegram real API", () => {
+  it("returns an error for invalid token against real Telegram API", async () => {
     const result = await validateTelegramToken("000000000:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
     expect(result.valid).toBe(false);
     if (!result.valid) {
-      expect(result.error).toMatch(/401|404|無效|錯誤|無法連線/);
+      expect(result.error).toMatch(/401|404|Invalid|error|Unable to connect/i);
     }
   }, 10000);
 
-  it("格式錯誤的 token 回傳錯誤", async () => {
+  it("returns an error for malformed token", async () => {
     const result = await validateTelegramToken("not-a-real-token");
     expect(result.valid).toBe(false);
   }, 10000);
 });
 
-describe("整合測試：Config 真實檔案系統", () => {
-  it("完整的儲存 + 讀取迴圈", () => {
+describe("Integration test: Config with real filesystem", () => {
+  it("completes a full save + load cycle", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "integration-test-"));
 
     try {
@@ -64,7 +64,7 @@ describe("整合測試：Config 真實檔案系統", () => {
       const tgToken = loadChannelToken("telegram", "TELEGRAM_BOT_TOKEN", tmpDir);
       expect(tgToken).toBe("tg-token-xyz");
 
-      // 確認檔案權限可讀
+      // Verify files are readable
       const discEnv = fs.readFileSync(
         path.join(tmpDir, "channels", "discord", ".env"),
         "utf-8",
@@ -82,8 +82,8 @@ describe("整合測試：Config 真實檔案系統", () => {
   });
 });
 
-describe("整合測試：多 channel 指令生成", () => {
-  it("Discord + Telegram 組合指令", () => {
+describe("Integration test: Multi-channel command generation", () => {
+  it("generates a combined Discord + Telegram command", () => {
     const cmd = getChannelLaunchCommand(["discord", "telegram"]);
     expect(cmd).toContain("plugin:discord@claude-plugins-official");
     expect(cmd).toContain("plugin:telegram@claude-plugins-official");

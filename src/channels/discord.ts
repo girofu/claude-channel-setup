@@ -1,6 +1,6 @@
-// Claude Code Discord Channel 設定模組
+// Claude Code Discord channel setup module
 
-/** Discord Bot 所需的權限（bigint） */
+/** Required Discord bot permissions (bigint) */
 export const DISCORD_PERMISSIONS = {
   VIEW_CHANNELS: 1024n,
   SEND_MESSAGES: 2048n,
@@ -20,7 +20,7 @@ export type TokenValidationResult =
   | { valid: true; bot: DiscordBotInfo }
   | { valid: false; error: string };
 
-/** 透過 Discord API 驗證 bot token 是否有效 */
+/** Validate bot token via the Discord API */
 export async function validateDiscordToken(
   token: string,
 ): Promise<TokenValidationResult> {
@@ -32,7 +32,7 @@ export async function validateDiscordToken(
     if (!response.ok) {
       return {
         valid: false,
-        error: `Token 無效 (${response.status} ${response.statusText})`,
+        error: `Invalid token (${response.status} ${response.statusText})`,
       };
     }
 
@@ -43,7 +43,7 @@ export async function validateDiscordToken(
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { valid: false, error: `無法連線到 Discord API: ${message}` };
+    return { valid: false, error: `Unable to connect to Discord API: ${message}` };
   }
 }
 
@@ -58,9 +58,14 @@ export interface DiscordChannel {
   name: string;
   type: number;
   position: number;
+  parent_id?: string | null;
 }
 
-/** 取得 bot 已加入的 guild 列表 */
+export interface DiscordChannelWithCategory extends DiscordChannel {
+  categoryName: string | null;
+}
+
+/** Fetch the list of guilds the bot has joined */
 export async function fetchBotGuilds(token: string): Promise<DiscordGuild[]> {
   const response = await fetch(
     "https://discord.com/api/v10/users/@me/guilds",
@@ -69,14 +74,14 @@ export async function fetchBotGuilds(token: string): Promise<DiscordGuild[]> {
 
   if (!response.ok) {
     throw new Error(
-      `無法取得 guild 列表 (${response.status} ${response.statusText})`,
+      `Failed to fetch guild list (${response.status} ${response.statusText})`,
     );
   }
 
   return (await response.json()) as DiscordGuild[];
 }
 
-/** 取得 guild 內的 text channel 列表（過濾掉語音、分類等） */
+/** Fetch text channels in a guild (filters out voice, category, etc.) */
 export async function fetchGuildChannels(
   token: string,
   guildId: string,
@@ -88,7 +93,7 @@ export async function fetchGuildChannels(
 
   if (!response.ok) {
     throw new Error(
-      `無法取得 channel 列表 (${response.status} ${response.statusText})`,
+      `Failed to fetch channel list (${response.status} ${response.statusText})`,
     );
   }
 
@@ -97,10 +102,45 @@ export async function fetchGuildChannels(
   return channels.filter((ch) => ch.type === 0);
 }
 
-/** 生成包含所需權限的 OAuth2 邀請 URL */
+/** Fetch text channels in a guild, including their parent category name */
+export async function fetchGuildChannelsWithCategories(
+  token: string,
+  guildId: string,
+): Promise<DiscordChannelWithCategory[]> {
+  const response = await fetch(
+    `https://discord.com/api/v10/guilds/${guildId}/channels`,
+    { headers: { Authorization: `Bot ${token}` } },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch channel list (${response.status} ${response.statusText})`,
+    );
+  }
+
+  const channels = (await response.json()) as DiscordChannel[];
+
+  // Build category id -> name mapping (type 4 = GUILD_CATEGORY)
+  const categoryMap = new Map<string, string>();
+  for (const ch of channels) {
+    if (ch.type === 4) {
+      categoryMap.set(ch.id, ch.name);
+    }
+  }
+
+  // Return text channels (type 0) with category name attached
+  return channels
+    .filter((ch) => ch.type === 0)
+    .map((ch) => ({
+      ...ch,
+      categoryName: ch.parent_id ? (categoryMap.get(ch.parent_id) ?? null) : null,
+    }));
+}
+
+/** Generate an OAuth2 invite URL with the required permissions */
 export function generateInviteUrl(clientId: string): string {
   if (!clientId) {
-    throw new Error("client_id 不可為空");
+    throw new Error("client_id must not be empty");
   }
 
   const permissions = Object.values(DISCORD_PERMISSIONS).reduce(

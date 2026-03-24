@@ -13,7 +13,7 @@ import {
   type AccessConfig,
 } from "../src/lib/access.js";
 
-describe("Access Config 管理", () => {
+describe("Access config management", () => {
   let tmpDir: string;
   let channelDir: string;
 
@@ -28,7 +28,7 @@ describe("Access Config 管理", () => {
   });
 
   describe("loadAccessConfig", () => {
-    it("檔案不存在時回傳預設設定", () => {
+    it("returns default config when file does not exist", () => {
       const config = loadAccessConfig("discord", tmpDir);
       expect(config).toEqual({
         dmPolicy: "pairing",
@@ -38,7 +38,7 @@ describe("Access Config 管理", () => {
       });
     });
 
-    it("讀取已存在的 access.json", () => {
+    it("reads an existing access.json", () => {
       const existing: AccessConfig = {
         dmPolicy: "allowlist",
         allowFrom: ["123"],
@@ -58,7 +58,7 @@ describe("Access Config 管理", () => {
   });
 
   describe("saveAccessConfig", () => {
-    it("寫入 access.json", () => {
+    it("writes access.json", () => {
       const config: AccessConfig = {
         dmPolicy: "allowlist",
         allowFrom: ["user1"],
@@ -74,7 +74,7 @@ describe("Access Config 管理", () => {
       expect(JSON.parse(raw)).toEqual(config);
     });
 
-    it("目錄不存在時自動建立", () => {
+    it("creates the directory automatically if it does not exist", () => {
       const newBase = path.join(tmpDir, "new-base");
       const config: AccessConfig = {
         dmPolicy: "pairing",
@@ -90,7 +90,7 @@ describe("Access Config 管理", () => {
   });
 
   describe("addGroup", () => {
-    it("新增 group 到 access config", () => {
+    it("adds a group to the access config", () => {
       const config: AccessConfig = {
         dmPolicy: "allowlist",
         allowFrom: [],
@@ -107,7 +107,7 @@ describe("Access Config 管理", () => {
       });
     });
 
-    it("新增 group 帶 allowFrom", () => {
+    it("adds a group with allowFrom", () => {
       const config: AccessConfig = {
         dmPolicy: "allowlist",
         allowFrom: [],
@@ -126,7 +126,7 @@ describe("Access Config 管理", () => {
       });
     });
 
-    it("覆蓋已存在的 group 設定", () => {
+    it("overwrites an existing group config", () => {
       const config: AccessConfig = {
         dmPolicy: "allowlist",
         allowFrom: [],
@@ -141,7 +141,7 @@ describe("Access Config 管理", () => {
       expect(updated.groups["ch-1"].requireMention).toBe(false);
     });
 
-    it("不影響其他 group", () => {
+    it("does not affect other groups", () => {
       const config: AccessConfig = {
         dmPolicy: "allowlist",
         allowFrom: [],
@@ -159,7 +159,7 @@ describe("Access Config 管理", () => {
   });
 
   describe("removeGroup", () => {
-    it("移除指定 group", () => {
+    it("removes the specified group", () => {
       const config: AccessConfig = {
         dmPolicy: "allowlist",
         allowFrom: [],
@@ -176,7 +176,7 @@ describe("Access Config 管理", () => {
       expect(updated.groups["ch-2"]).toEqual({ requireMention: false });
     });
 
-    it("移除不存在的 group 不拋錯", () => {
+    it("does not throw when removing a non-existent group", () => {
       const config: AccessConfig = {
         dmPolicy: "allowlist",
         allowFrom: [],
@@ -189,7 +189,7 @@ describe("Access Config 管理", () => {
   });
 
   describe("listGroups", () => {
-    it("列出所有 group", () => {
+    it("lists all groups", () => {
       const config: AccessConfig = {
         dmPolicy: "allowlist",
         allowFrom: [],
@@ -207,7 +207,7 @@ describe("Access Config 管理", () => {
       ]);
     });
 
-    it("沒有 group 時回傳空陣列", () => {
+    it("returns an empty array when there are no groups", () => {
       const config: AccessConfig = {
         dmPolicy: "allowlist",
         allowFrom: [],
@@ -220,7 +220,7 @@ describe("Access Config 管理", () => {
   });
 
   describe("setDmPolicy", () => {
-    it("設定 dmPolicy", () => {
+    it("sets the dmPolicy", () => {
       const config: AccessConfig = {
         dmPolicy: "pairing",
         allowFrom: [],
@@ -234,7 +234,7 @@ describe("Access Config 管理", () => {
   });
 
   describe("addAllowedUser", () => {
-    it("新增 user 到 allowFrom", () => {
+    it("adds a user to allowFrom", () => {
       const config: AccessConfig = {
         dmPolicy: "allowlist",
         allowFrom: ["user1"],
@@ -246,7 +246,7 @@ describe("Access Config 管理", () => {
       expect(updated.allowFrom).toEqual(["user1", "user2"]);
     });
 
-    it("不重複新增相同 user", () => {
+    it("does not add duplicate users", () => {
       const config: AccessConfig = {
         dmPolicy: "allowlist",
         allowFrom: ["user1"],
@@ -259,9 +259,9 @@ describe("Access Config 管理", () => {
     });
   });
 
-  describe("整合：load → modify → save", () => {
-    it("完整流程：讀取 → 新增 group → 儲存 → 再讀取", () => {
-      // 初始寫入
+  describe("Integration: load -> modify -> save", () => {
+    it("completes a full flow: load -> add group -> save -> reload", () => {
+      // Initial write
       const initial: AccessConfig = {
         dmPolicy: "allowlist",
         allowFrom: ["my-user-id"],
@@ -270,7 +270,7 @@ describe("Access Config 管理", () => {
       };
       saveAccessConfig("discord", initial, tmpDir);
 
-      // 讀取 → 修改 → 儲存
+      // Load -> modify -> save
       let config = loadAccessConfig("discord", tmpDir);
       config = addGroup(config, "channel-789", {
         requireMention: true,
@@ -278,7 +278,7 @@ describe("Access Config 管理", () => {
       });
       saveAccessConfig("discord", config, tmpDir);
 
-      // 再讀取驗證
+      // Reload and verify
       const reloaded = loadAccessConfig("discord", tmpDir);
       expect(reloaded.groups["channel-789"]).toEqual({
         requireMention: true,

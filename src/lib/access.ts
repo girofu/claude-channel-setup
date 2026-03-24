@@ -1,4 +1,4 @@
-// Claude Code Channel access.json 管理模組
+// Claude Code channel access.json management module
 
 import fs from "node:fs";
 import path from "node:path";
@@ -27,7 +27,7 @@ function getAccessFilePath(channel: string, baseDir?: string): string {
   return path.join(base, "channels", channel, "access.json");
 }
 
-/** 讀取 access.json，檔案不存在時回傳預設設定 */
+/** Load access.json; returns default config if file does not exist */
 export function loadAccessConfig(
   channel: string,
   baseDir?: string,
@@ -47,7 +47,7 @@ export function loadAccessConfig(
   }
 }
 
-/** 儲存 access.json */
+/** Save access.json */
 export function saveAccessConfig(
   channel: string,
   config: AccessConfig,
@@ -59,7 +59,30 @@ export function saveAccessConfig(
   fs.writeFileSync(filePath, JSON.stringify(config, null, 2), "utf-8");
 }
 
-/** 新增或更新 group（Discord channel） */
+/** Load access.json directly from a specified directory */
+export function loadAccessConfigFromDir(dir: string): AccessConfig {
+  const filePath = path.join(dir, "access.json");
+  try {
+    const raw = fs.readFileSync(filePath, "utf-8");
+    return JSON.parse(raw) as AccessConfig;
+  } catch {
+    return {
+      dmPolicy: "pairing",
+      allowFrom: [],
+      groups: {},
+      pending: {},
+    };
+  }
+}
+
+/** Save access.json to a specified directory */
+export function saveAccessConfigToDir(dir: string, config: AccessConfig): void {
+  fs.mkdirSync(dir, { recursive: true });
+  const filePath = path.join(dir, "access.json");
+  fs.writeFileSync(filePath, JSON.stringify(config, null, 2), "utf-8");
+}
+
+/** Add or update a group (Discord channel) */
 export function addGroup(
   config: AccessConfig,
   channelId: string,
@@ -74,7 +97,7 @@ export function addGroup(
   };
 }
 
-/** 移除 group */
+/** Remove a group */
 export function removeGroup(
   config: AccessConfig,
   channelId: string,
@@ -86,7 +109,7 @@ export function removeGroup(
   };
 }
 
-/** 列出所有 group */
+/** List all groups */
 export function listGroups(config: AccessConfig): GroupListEntry[] {
   return Object.entries(config.groups).map(([channelId, policy]) => ({
     channelId,
@@ -95,7 +118,7 @@ export function listGroups(config: AccessConfig): GroupListEntry[] {
   }));
 }
 
-/** 設定 DM 政策 */
+/** Set the DM policy */
 export function setDmPolicy(
   config: AccessConfig,
   policy: "pairing" | "allowlist" | "disabled",
@@ -103,7 +126,7 @@ export function setDmPolicy(
   return { ...config, dmPolicy: policy };
 }
 
-/** 新增 user 到 DM allowlist */
+/** Add a user to the DM allowlist */
 export function addAllowedUser(
   config: AccessConfig,
   userId: string,

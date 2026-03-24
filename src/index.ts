@@ -1,6 +1,6 @@
-// claude-channel-setup CLI 入口
+// claude-channel-setup CLI entry point
 
-import { select, input, confirm, password } from "@inquirer/prompts";
+import { select, checkbox, input, confirm, password } from "@inquirer/prompts";
 import ora from "ora";
 import {
   SUPPORTED_CHANNELS,
@@ -14,63 +14,72 @@ import {
   validateDiscordToken,
   generateInviteUrl,
   fetchBotGuilds,
-  fetchGuildChannels,
+  fetchGuildChannelsWithCategories,
 } from "./channels/discord.js";
 import { validateTelegramToken } from "./channels/telegram.js";
 import { saveChannelToken, loadChannelToken } from "./lib/config.js";
 import {
   loadAccessConfig,
   saveAccessConfig,
+  loadAccessConfigFromDir,
+  saveAccessConfigToDir,
   addGroup,
   setDmPolicy,
   addAllowedUser,
 } from "./lib/access.js";
+import {
+  getProfileDir,
+  listProfiles,
+  saveProfileConfig,
+  getProfileLaunchEnv,
+} from "./lib/profile.js";
 import { detectClaudeCode, getPluginInstallCommands, getChannelLaunchCommand } from "./lib/claude.js";
 import * as ui from "./utils/ui.js";
 
 async function main() {
   console.log(ui.title("Claude Channel Setup"));
 
-  // 1. 偵測 Claude Code
-  const spinner = ora("偵測 Claude Code CLI...").start();
+  // 1. Detect Claude Code
+  const spinner = ora("Detecting Claude Code CLI...").start();
   const hasClaude = await detectClaudeCode();
   if (hasClaude) {
-    spinner.succeed("Claude Code CLI 已偵測到");
+    spinner.succeed("Claude Code CLI detected");
   } else {
-    spinner.warn("未偵測到 Claude Code CLI — 設定仍可繼續，但安裝 plugin 需手動執行");
+    spinner.warn("Claude Code CLI not detected — setup can continue, but plugin installation must be done manually");
   }
 
-  // 2. 偵測 Bun
-  const bunSpinner = ora("偵測 Bun runtime...").start();
+  // 2. Detect Bun
+  const bunSpinner = ora("Detecting Bun runtime...").start();
   const hasBun = await detectBun();
   if (hasBun) {
-    bunSpinner.succeed("Bun runtime 已偵測到");
+    bunSpinner.succeed("Bun runtime detected");
   } else {
-    bunSpinner.fail("未偵測到 Bun — Channel plugins 需要 Bun (https://bun.sh)");
+    bunSpinner.fail("Bun not detected — Channel plugins require Bun (https://bun.sh)");
     const shouldContinue = await confirm({
-      message: "是否繼續設定？（之後需自行安裝 Bun）",
+      message: "Continue setup? (you will need to install Bun later)",
       default: false,
     });
     if (!shouldContinue) {
-      console.log(ui.dim("已取消。請先安裝 Bun: https://bun.sh/docs/installation"));
+      console.log(ui.dim("Cancelled. Please install Bun first: https://bun.sh/docs/installation"));
       process.exit(0);
     }
   }
 
-  // 3. 選擇 channel
+  // 3. Select channel
   const selectedChannels = await selectChannels();
   if (selectedChannels.length === 0) {
-    console.log(ui.dim("未選擇任何 channel，結束。"));
+    console.log(ui.dim("No channel selected, exiting."));
     process.exit(0);
   }
 
-  // 4. 逐一設定每個 channel
+  // 4. Set up each channel and collect profile info
+  const profileMap: Record<string, string | undefined> = {};
   for (const channel of selectedChannels) {
-    await setupChannel(channel);
+    profileMap[channel] = await setupChannel(channel);
   }
 
-  // 5. 顯示最終指令
-  printNextSteps(selectedChannels);
+  // 5. Display final instructions
+  printNextSteps(selectedChannels, profileMap);
 }
 
 async function detectBun(): Promise<boolean> {
@@ -89,7 +98,7 @@ async function selectChannels(): Promise<ChannelType[]> {
     value: ch,
   }));
 
-  // 如果 CLI 帶了參數，直接使用
+  // If CLI arguments are provided, use them directly
   const args = process.argv.slice(2);
   if (args.length > 0) {
     const valid = args.filter((a): a is ChannelType =>
@@ -99,10 +108,10 @@ async function selectChannels(): Promise<ChannelType[]> {
   }
 
   const channel = await select({
-    message: "選擇要設定的 channel:",
+    message: "Select channel to set up:",
     choices: [
       ...choices,
-      { name: "全部設定 (Discord + Telegram)", value: "all" as const },
+      { name: "All (Discord + Telegram)", value: "all" as const },
     ],
   });
 
@@ -110,30 +119,54 @@ async function selectChannels(): Promise<ChannelType[]> {
   return [channel as ChannelType];
 }
 
-async function setupChannel(channel: ChannelType): Promise<void> {
+async function setupChannel(channel: ChannelType): Promise<string | undefined> {
   const displayName = getChannelDisplayName(channel);
-  console.log(ui.title(`設定 ${displayName}`));
+  console.log(ui.title(`Setting up ${displayName}`));
 
-  // 顯示先決條件
-  console.log(`${ui.icons.clipboard} 先決條件（手動步驟）:`);
+  // Check whether to use a profile (multi-bot support)
+  const existingProfiles = listProfiles(channel);
+  let profileName: string | undefined;
+
+  if (existingProfiles.length > 0) {
+    console.log(ui.dim(`Existing profiles: ${existingProfiles.join(", ")}`));
+  }
+
+  const useProfile = await confirm({
+    message: "Create a separate profile for this bot? (for multi-bot / multi-session setups)",
+    default: existingProfiles.length > 0,
+  });
+
+  if (useProfile) {
+    profileName = await input({
+      message: "Profile name (e.g., backend, frontend, ops):",
+      validate: (v) => {
+        if (!v.trim()) return "Name cannot be empty";
+        if (!/^[a-z0-9-]+$/.test(v)) return "Only lowercase letters, numbers, and hyphens are allowed";
+        return true;
+      },
+    });
+  }
+
+  // Display prerequisites
+  console.log(`\n${ui.icons.clipboard} Prerequisites (manual steps):`);
   console.log(ui.prerequisiteList(getPrerequisiteSteps(channel)));
   console.log();
 
-  await confirm({ message: "以上步驟都已完成？", default: true });
+  await confirm({ message: "All steps completed?", default: true });
 
-  // 取得 token
+  // Get token
   const token = await password({
     message: getTokenPromptMessage(channel),
     mask: "*",
   });
 
   if (!token) {
-    console.log(ui.error("未輸入 token，跳過此 channel。"));
+    console.log(ui.error("No token entered, skipping this channel."));
     return;
   }
 
-  // 驗證 token
-  const validateSpinner = ora("驗證 token...").start();
+  // Validate token
+  const validateSpinner = ora("Validating token...").start();
   let botId = "";
 
   if (channel === "discord") {
@@ -143,7 +176,7 @@ async function setupChannel(channel: ChannelType): Promise<void> {
       return;
     }
     validateSpinner.succeed(
-      `Token 驗證成功 (bot: ${result.bot.username}#${result.bot.discriminator})`,
+      `Token verified (bot: ${result.bot.username}#${result.bot.discriminator})`,
     );
     botId = result.bot.id;
   } else {
@@ -153,18 +186,18 @@ async function setupChannel(channel: ChannelType): Promise<void> {
       return;
     }
     validateSpinner.succeed(
-      `Token 驗證成功 (bot: @${result.bot.username})`,
+      `Token verified (bot: @${result.bot.username})`,
     );
   }
 
-  // Discord: 生成邀請 URL
+  // Discord: generate invite URL
   if (channel === "discord") {
     const inviteUrl = generateInviteUrl(botId);
-    console.log(`\n${ui.icons.link} 邀請 URL（包含所有必要權限）:`);
+    console.log(`\n${ui.icons.link} Invite URL (all required permissions):`);
     console.log(`   ${ui.code(inviteUrl)}`);
 
     const openBrowser = await confirm({
-      message: "是否在瀏覽器中開啟邀請 URL？",
+      message: "Open invite URL in browser?",
       default: true,
     });
 
@@ -172,75 +205,88 @@ async function setupChannel(channel: ChannelType): Promise<void> {
       await openUrl(inviteUrl);
     }
 
-    await confirm({ message: "Bot 已加入你的 server？", default: true });
+    await confirm({ message: "Bot has joined your server?", default: true });
 
-    // Discord: 設定 Server Channel（Group）
-    await setupDiscordGroups(token, channel);
+    // Discord: set up Server Channels (Groups)
+    await setupDiscordGroups(token, channel, profileName);
   }
 
-  // 儲存 token
-  const saveSpinner = ora("儲存 token...").start();
-  saveChannelToken(channel, getTokenEnvKey(channel), token);
-  saveSpinner.succeed(`Token 已儲存到 ~/.claude/channels/${channel}/.env`);
+  // Save token (using profile system)
+  const saveSpinner = ora("Saving configuration...").start();
+  const profileDir = getProfileDir(channel, profileName);
+  saveProfileConfig(channel, profileName, token);
 
-  // 顯示 plugin 安裝指令
+  const profileLabel = profileName ? ` (profile: ${profileName})` : "";
+  saveSpinner.succeed(
+    `Configuration saved to ${profileDir}/.env${profileLabel}`,
+  );
+
+  // Display plugin install commands
   const cmds = getPluginInstallCommands(channel);
-  console.log(`\n${ui.icons.package} Plugin 安裝指令（在 Claude Code 中執行）:`);
+  console.log(`\n${ui.icons.package} Plugin install command (run in Claude Code):`);
   console.log(`   ${ui.code(cmds.install)}`);
-  console.log(ui.dim(`   如果找不到 plugin，先執行: ${cmds.marketplaceAdd}`));
-  console.log(ui.dim(`   安裝後執行: ${cmds.reload}`));
+  console.log(ui.dim(`   If plugin not found, run first: ${cmds.marketplaceAdd}`));
+  console.log(ui.dim(`   After installation, run: ${cmds.reload}`));
+
+  return profileName;
 }
 
-function printNextSteps(channels: ChannelType[]): void {
-  const launchCmd = getChannelLaunchCommand(channels);
+function printNextSteps(
+  channels: ChannelType[],
+  profileMap: Record<string, string | undefined> = {},
+): void {
   const channelNames = channels.map(getChannelDisplayName).join(" + ");
 
-  console.log(ui.title("設定完成"));
-  console.log(`${ui.icons.memo} 後續步驟:\n`);
-  console.log(`   1. 在 Claude Code 中安裝 plugin（見上方指令）`);
-  console.log(`   2. 重啟 Claude Code:`);
-  console.log(`      ${ui.code(launchCmd)}`);
-  console.log(`   3. 在 ${channelNames} 中 DM 你的 bot，取得配對碼`);
+  console.log(ui.title("Setup Complete"));
+  console.log(`${ui.icons.memo} Next steps:\n`);
+  console.log(`   1. Install the plugin in Claude Code (see above)`);
+  console.log(`   2. Restart Claude Code:`);
 
   for (const ch of channels) {
-    console.log(`   4. 執行配對: ${ui.code(`/${ch}:access pair <code>`)}`);
-    console.log(`   5. 鎖定存取: ${ui.code(`/${ch}:access policy allowlist`)}`);
+    const profile = profileMap[ch];
+    const envPrefix = getProfileLaunchEnv(ch, profile);
+    const launchCmd = getChannelLaunchCommand([ch]);
+    const fullCmd = envPrefix ? `${envPrefix} ${launchCmd}` : launchCmd;
+    console.log(`      ${ui.code(fullCmd)}`);
   }
 
-  console.log(`\n${ui.dim("完整文件: https://code.claude.com/docs/en/channels")}`);
+  console.log(`   3. Send a message in the configured channel (if requireMention is enabled, @mention the bot), or DM the bot directly`);
+
+  console.log(`\n${ui.dim("Full documentation: https://code.claude.com/docs/en/channels")}`);
 }
 
 async function setupDiscordGroups(
   token: string,
   channel: ChannelType,
+  profileName?: string,
 ): Promise<void> {
   const wantGroups = await confirm({
-    message: "是否設定 Server Channel？（讓 bot 在指定 channel 回應，而非只有 DM）",
+    message: "Set up Server Channels? (let the bot respond in specific channels, not just DMs)",
     default: true,
   });
 
   if (!wantGroups) return;
 
-  const spinner = ora("取得 bot 已加入的 server 列表...").start();
+  const spinner = ora("Fetching servers the bot has joined...").start();
   let guilds;
   try {
     guilds = await fetchBotGuilds(token);
   } catch (err) {
     spinner.fail(
-      `無法取得 server 列表: ${err instanceof Error ? err.message : String(err)}`,
+      `Failed to fetch server list: ${err instanceof Error ? err.message : String(err)}`,
     );
     return;
   }
 
   if (guilds.length === 0) {
-    spinner.warn("Bot 尚未加入任何 server。請先用邀請 URL 加入後再設定。");
+    spinner.warn("Bot has not joined any server yet. Please use the invite URL to add it first.");
     return;
   }
-  spinner.succeed(`找到 ${guilds.length} 個 server`);
+  spinner.succeed(`Found ${guilds.length} server(s)`);
 
-  // 選擇 server
+  // Select server
   const guildChoice = await select({
-    message: "選擇要設定的 server:",
+    message: "Select server to configure:",
     choices: guilds.map((g) => ({
       name: g.name,
       value: g.id,
@@ -248,65 +294,71 @@ async function setupDiscordGroups(
     })),
   });
 
-  // 取得 channel 列表
-  const chSpinner = ora("取得 channel 列表...").start();
-  let channels;
+  // Fetch channel list (with category info)
+  const chSpinner = ora("Fetching channel list...").start();
+  let channels: import("./channels/discord.js").DiscordChannelWithCategory[];
   try {
-    channels = await fetchGuildChannels(token, guildChoice);
+    channels = await fetchGuildChannelsWithCategories(token, guildChoice);
   } catch (err) {
     chSpinner.fail(
-      `無法取得 channel 列表: ${err instanceof Error ? err.message : String(err)}`,
+      `Failed to fetch channel list: ${err instanceof Error ? err.message : String(err)}`,
     );
     return;
   }
 
   if (channels.length === 0) {
-    chSpinner.warn("此 server 沒有 bot 可以存取的文字頻道。");
+    chSpinner.warn("No text channels accessible by the bot in this server.");
     return;
   }
-  chSpinner.succeed(`找到 ${channels.length} 個文字頻道`);
+  chSpinner.succeed(`Found ${channels.length} text channel(s)`);
 
-  // 選擇 channel（可多選）
+  // Select channels (multi-select, showing category info)
   const channelChoices = channels
     .sort((a, b) => a.position - b.position)
-    .map((ch) => ({
-      name: `#${ch.name}`,
-      value: ch.id,
-      description: `ID: ${ch.id}`,
-    }));
-
-  // 逐一確認要加入哪些 channel
-  const selectedChannels: string[] = [];
-  for (const ch of channelChoices) {
-    const add = await confirm({
-      message: `加入 ${ch.name}？`,
-      default: false,
+    .map((ch) => {
+      const label = ch.categoryName
+        ? `#${ch.name}  [${ch.categoryName}]`
+        : `#${ch.name}`;
+      return {
+        name: label,
+        value: ch.id,
+      };
     });
-    if (add) selectedChannels.push(ch.value);
-  }
+
+  // Multi-select channels
+  const selectedChannels = await checkbox({
+    message: "Select channels to enable (space to toggle, enter to confirm):",
+    choices: channelChoices,
+  });
 
   if (selectedChannels.length === 0) {
-    console.log(ui.dim("未選擇任何 channel，跳過 group 設定。"));
+    console.log(ui.dim("No channels selected, skipping group setup."));
     return;
   }
 
-  // 設定 requireMention
+  // Configure requireMention
   const requireMention = await confirm({
-    message: "需要 @mention bot 才回應？（建議在多人 channel 開啟）",
+    message: "Require @mention to respond? (recommended for shared channels)",
     default: true,
   });
 
-  // 寫入 access.json
-  let config = loadAccessConfig(channel);
+  // Write access.json (in profile mode, write to profile directory)
+  const profileDir = profileName ? getProfileDir(channel, profileName) : undefined;
+  // If using a profile, the baseDir needs to be adjusted to two levels above the profile directory
+  // because loadAccessConfig automatically appends channels/<channel>/
+  // while the profile directory is <base>/channels/<channel>-<profile>/
+  // so operating directly on the full access.json path is more reliable
+  const accessDir = profileDir ?? getProfileDir(channel, undefined);
+  let config = loadAccessConfigFromDir(accessDir);
   for (const chId of selectedChannels) {
     config = addGroup(config, chId, { requireMention });
   }
 
-  // 同時確保 dmPolicy 是 allowlist（避免 pairing 卡住的問題）
+  // Also ensure dmPolicy is allowlist (to avoid issues with pairing getting stuck)
   if (config.dmPolicy === "pairing") {
     const switchPolicy = await confirm({
       message:
-        "目前 DM 政策是 pairing（需配對），要改成 allowlist（直接允許）嗎？",
+        "Current DM policy is pairing (requires pairing). Switch to allowlist (direct allow)?",
       default: true,
     });
     if (switchPolicy) {
@@ -314,23 +366,24 @@ async function setupDiscordGroups(
     }
   }
 
-  saveAccessConfig(channel, config);
+  saveAccessConfigToDir(accessDir, config);
 
   const chNames = selectedChannels
-    .map((id) => {
+    .map((id: string) => {
       const ch = channels.find((c) => c.id === id);
-      return ch ? `#${ch.name}` : id;
+      if (!ch) return id;
+      return ch.categoryName ? `#${ch.name} [${ch.categoryName}]` : `#${ch.name}`;
     })
     .join(", ");
 
   console.log(
     ui.success(
-      `已設定 ${selectedChannels.length} 個 channel: ${chNames}`,
+      `Configured ${selectedChannels.length} channel(s): ${chNames}`,
     ),
   );
   console.log(
     ui.dim(
-      `  requireMention: ${requireMention} — ${requireMention ? "需要 @bot 才回應" : "所有訊息都回應"}`,
+      `  requireMention: ${requireMention} — ${requireMention ? "bot responds only when @mentioned" : "bot responds to all messages"}`,
     ),
   );
 }
@@ -347,11 +400,11 @@ async function openUrl(url: string): Promise<void> {
       execFileSync("cmd", ["/c", "start", url]);
     }
   } catch {
-    console.log(ui.warning("無法自動開啟瀏覽器，請手動複製 URL。"));
+    console.log(ui.warning("Unable to open browser automatically. Please copy the URL manually."));
   }
 }
 
 main().catch((err) => {
-  console.error(ui.error(`發生錯誤: ${err instanceof Error ? err.message : String(err)}`));
+  console.error(ui.error(`Error: ${err instanceof Error ? err.message : String(err)}`));
   process.exit(1);
 });

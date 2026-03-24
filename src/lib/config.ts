@@ -1,10 +1,10 @@
-// Claude Code Channel 設定檔管理
+// Claude Code channel configuration management
 
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-/** 取得 channel 設定目錄路徑 */
+/** Get the config directory path for a channel */
 export function getChannelConfigDir(
   channel: string,
   baseDir?: string,
@@ -13,7 +13,7 @@ export function getChannelConfigDir(
   return path.join(base, "channels", channel);
 }
 
-/** 將 token 儲存到 channel 的 .env 檔案 */
+/** Save a token to the channel's .env file */
 export function saveChannelToken(
   channel: string,
   key: string,
@@ -26,7 +26,7 @@ export function saveChannelToken(
   fs.writeFileSync(envPath, `${key}=${token}\n`, "utf-8");
 }
 
-/** 從 channel 的 .env 檔案讀取 token */
+/** Load a token from the channel's .env file */
 export function loadChannelToken(
   channel: string,
   key: string,

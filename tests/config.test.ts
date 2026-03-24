@@ -4,7 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import { saveChannelToken, loadChannelToken, getChannelConfigDir } from "../src/lib/config";
 
-describe("Config 管理", () => {
+describe("Config management", () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -16,14 +16,14 @@ describe("Config 管理", () => {
   });
 
   describe("getChannelConfigDir", () => {
-    it("回傳 ~/.claude/channels/<channel> 路徑", () => {
+    it("returns the ~/.claude/channels/<channel> path", () => {
       const dir = getChannelConfigDir("discord", tmpDir);
       expect(dir).toBe(path.join(tmpDir, "channels", "discord"));
     });
   });
 
   describe("saveChannelToken", () => {
-    it("將 token 存入 .env 檔案", () => {
+    it("saves the token to a .env file", () => {
       saveChannelToken("discord", "DISCORD_BOT_TOKEN", "my-token-123", tmpDir);
 
       const envPath = path.join(tmpDir, "channels", "discord", ".env");
@@ -33,7 +33,7 @@ describe("Config 管理", () => {
       );
     });
 
-    it("目錄不存在時自動建立", () => {
+    it("creates the directory automatically if it does not exist", () => {
       const customBase = path.join(tmpDir, "nonexistent", ".claude");
       saveChannelToken("telegram", "TELEGRAM_BOT_TOKEN", "tg-token", customBase);
 
@@ -41,7 +41,7 @@ describe("Config 管理", () => {
       expect(fs.existsSync(envPath)).toBe(true);
     });
 
-    it("已存在的 .env 會被覆蓋", () => {
+    it("overwrites an existing .env file", () => {
       saveChannelToken("discord", "DISCORD_BOT_TOKEN", "old-token", tmpDir);
       saveChannelToken("discord", "DISCORD_BOT_TOKEN", "new-token", tmpDir);
 
@@ -53,19 +53,19 @@ describe("Config 管理", () => {
   });
 
   describe("loadChannelToken", () => {
-    it("從 .env 檔案讀取 token", () => {
+    it("reads the token from a .env file", () => {
       saveChannelToken("discord", "DISCORD_BOT_TOKEN", "my-token", tmpDir);
 
       const token = loadChannelToken("discord", "DISCORD_BOT_TOKEN", tmpDir);
       expect(token).toBe("my-token");
     });
 
-    it("檔案不存在時回傳 null", () => {
+    it("returns null when the file does not exist", () => {
       const token = loadChannelToken("discord", "DISCORD_BOT_TOKEN", tmpDir);
       expect(token).toBeNull();
     });
 
-    it("key 不存在時回傳 null", () => {
+    it("returns null when the key does not exist", () => {
       saveChannelToken("discord", "DISCORD_BOT_TOKEN", "my-token", tmpDir);
 
       const token = loadChannelToken("discord", "OTHER_KEY", tmpDir);

@@ -1,8 +1,8 @@
-// Claude Code CLI 整合模組
+// Claude Code CLI integration module
 
 type ExecFn = (cmd: string) => Promise<{ stdout: string }>;
 
-/** 偵測系統是否安裝了 Claude Code CLI */
+/** Detect whether Claude Code CLI is installed on the system */
 export async function detectClaudeCode(
   exec?: ExecFn,
 ): Promise<boolean> {
@@ -15,7 +15,7 @@ export async function detectClaudeCode(
   }
 }
 
-/** 取得 plugin 安裝相關指令 */
+/** Get plugin installation related commands */
 export function getPluginInstallCommands(channel: string) {
   return {
     install: `/plugin install ${channel}@claude-plugins-official`,
@@ -25,10 +25,10 @@ export function getPluginInstallCommands(channel: string) {
   };
 }
 
-/** 生成帶 --channels 的 Claude Code 啟動指令 */
+/** Generate a Claude Code launch command with --channels flag */
 export function getChannelLaunchCommand(channels: string[]): string {
   if (channels.length === 0) {
-    throw new Error("至少需要一個 channel");
+    throw new Error("At least one channel is required");
   }
 
   const plugins = channels

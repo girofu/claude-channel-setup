@@ -8,49 +8,49 @@ import {
   getPrerequisiteSteps,
 } from "../src/commands/setup";
 
-describe("Setup 流程", () => {
+describe("Setup flow", () => {
   describe("SUPPORTED_CHANNELS", () => {
-    it("支援 discord 和 telegram", () => {
+    it("supports discord and telegram", () => {
       expect(SUPPORTED_CHANNELS).toContain("discord");
       expect(SUPPORTED_CHANNELS).toContain("telegram");
     });
   });
 
   describe("getChannelDisplayName", () => {
-    it("回傳 channel 的顯示名稱", () => {
+    it("returns the display name for a channel", () => {
       expect(getChannelDisplayName("discord")).toBe("Discord");
       expect(getChannelDisplayName("telegram")).toBe("Telegram");
     });
   });
 
   describe("getTokenEnvKey", () => {
-    it("回傳 channel 對應的 env key", () => {
+    it("returns the env key for a channel", () => {
       expect(getTokenEnvKey("discord")).toBe("DISCORD_BOT_TOKEN");
       expect(getTokenEnvKey("telegram")).toBe("TELEGRAM_BOT_TOKEN");
     });
   });
 
   describe("getTokenPromptMessage", () => {
-    it("discord 提示訊息包含 Developer Portal", () => {
+    it("includes Developer Portal in discord prompt", () => {
       const msg = getTokenPromptMessage("discord");
       expect(msg).toContain("Developer Portal");
     });
 
-    it("telegram 提示訊息包含 BotFather", () => {
+    it("includes BotFather in telegram prompt", () => {
       const msg = getTokenPromptMessage("telegram");
       expect(msg).toContain("BotFather");
     });
   });
 
   describe("getPrerequisiteSteps", () => {
-    it("discord 先決條件包含建立 bot 和啟用 Message Content Intent", () => {
+    it("includes creating a bot and enabling Message Content Intent for discord", () => {
       const steps = getPrerequisiteSteps("discord");
       expect(steps.length).toBeGreaterThanOrEqual(2);
       expect(steps.some((s) => s.includes("Developer Portal"))).toBe(true);
       expect(steps.some((s) => s.includes("Message Content Intent"))).toBe(true);
     });
 
-    it("telegram 先決條件包含 BotFather", () => {
+    it("includes BotFather for telegram", () => {
       const steps = getPrerequisiteSteps("telegram");
       expect(steps.length).toBeGreaterThanOrEqual(1);
       expect(steps.some((s) => s.includes("BotFather"))).toBe(true);

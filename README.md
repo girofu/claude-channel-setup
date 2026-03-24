@@ -106,7 +106,7 @@ npx claude-channel-setup discord telegram
    1. Install the plugin in Claude Code (see above)
    2. Restart Claude Code:
       claude --channels plugin:discord@claude-plugins-official
-   3. @mention your bot in the configured channels, or DM it directly
+   3. Send a message in the configured channel (if requireMention is enabled, @mention the bot), or DM the bot directly
 ```
 
 ## Prerequisites

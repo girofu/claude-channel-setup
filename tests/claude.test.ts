@@ -5,19 +5,19 @@ import {
   getChannelLaunchCommand,
 } from "../src/lib/claude";
 
-describe("Claude Code 整合", () => {
+describe("Claude Code integration", () => {
   describe("detectClaudeCode", () => {
     beforeEach(() => {
       vi.restoreAllMocks();
     });
 
-    it("claude 指令存在時回傳 true", async () => {
+    it("returns true when claude command exists", async () => {
       const mockExec = vi.fn().mockResolvedValue({ stdout: "/usr/local/bin/claude\n" });
       const result = await detectClaudeCode(mockExec);
       expect(result).toBe(true);
     });
 
-    it("claude 指令不存在時回傳 false", async () => {
+    it("returns false when claude command does not exist", async () => {
       const mockExec = vi.fn().mockRejectedValue(new Error("not found"));
       const result = await detectClaudeCode(mockExec);
       expect(result).toBe(false);
@@ -25,7 +25,7 @@ describe("Claude Code 整合", () => {
   });
 
   describe("getPluginInstallCommands", () => {
-    it("生成 discord plugin 安裝指令", () => {
+    it("generates discord plugin install commands", () => {
       const cmds = getPluginInstallCommands("discord");
       expect(cmds).toEqual({
         install: "/plugin install discord@claude-plugins-official",
@@ -37,7 +37,7 @@ describe("Claude Code 整合", () => {
       });
     });
 
-    it("生成 telegram plugin 安裝指令", () => {
+    it("generates telegram plugin install commands", () => {
       const cmds = getPluginInstallCommands("telegram");
       expect(cmds.install).toBe(
         "/plugin install telegram@claude-plugins-official",
@@ -46,23 +46,23 @@ describe("Claude Code 整合", () => {
   });
 
   describe("getChannelLaunchCommand", () => {
-    it("單一 channel 的啟動指令", () => {
+    it("generates a launch command for a single channel", () => {
       const cmd = getChannelLaunchCommand(["discord"]);
       expect(cmd).toBe(
         "claude --channels plugin:discord@claude-plugins-official",
       );
     });
 
-    it("多個 channel 的啟動指令", () => {
+    it("generates a launch command for multiple channels", () => {
       const cmd = getChannelLaunchCommand(["discord", "telegram"]);
       expect(cmd).toBe(
         "claude --channels plugin:discord@claude-plugins-official plugin:telegram@claude-plugins-official",
       );
     });
 
-    it("空陣列拋出錯誤", () => {
+    it("throws an error for an empty array", () => {
       expect(() => getChannelLaunchCommand([])).toThrow(
-        "至少需要一個 channel",
+        "At least one channel is required",
       );
     });
   });

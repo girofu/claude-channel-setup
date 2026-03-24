@@ -1,4 +1,4 @@
-// CLI UI 工具：顏色、排版、訊息
+// CLI UI utilities: colors, formatting, messages
 
 import pc from "picocolors";
 

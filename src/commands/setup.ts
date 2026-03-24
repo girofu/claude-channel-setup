@@ -1,4 +1,4 @@
-// 主設定流程
+// Main setup flow
 
 export const SUPPORTED_CHANNELS = ["discord", "telegram"] as const;
 export type ChannelType = (typeof SUPPORTED_CHANNELS)[number];
@@ -16,22 +16,22 @@ const CHANNEL_CONFIG: Record<
     displayName: "Discord",
     tokenEnvKey: "DISCORD_BOT_TOKEN",
     tokenPrompt:
-      "貼上你的 Discord Bot Token（從 Developer Portal 取得）:",
+      "Paste your Discord Bot Token (from Developer Portal):",
     prerequisites: [
-      "在 Discord Developer Portal (https://discord.com/developers/applications) 建立一個新的 Application",
-      '在 Bot 設定中啟用 "Message Content Intent"',
-      "複製 Bot Token（點擊 Reset Token）",
+      "Create a new Application at Discord Developer Portal (https://discord.com/developers/applications)",
+      'Enable "Message Content Intent" in Bot settings',
+      "Copy the Bot Token (click Reset Token)",
     ],
   },
   telegram: {
     displayName: "Telegram",
     tokenEnvKey: "TELEGRAM_BOT_TOKEN",
     tokenPrompt:
-      "貼上你的 Telegram Bot Token（從 BotFather 取得）:",
+      "Paste your Telegram Bot Token (from BotFather):",
     prerequisites: [
-      "在 Telegram 開啟 BotFather (https://t.me/BotFather)，發送 /newbot 建立新 bot",
-      "設定 bot 的顯示名稱和 username（需以 bot 結尾）",
-      "複製 BotFather 回傳的 Token",
+      "Open BotFather in Telegram (https://t.me/BotFather) and send /newbot to create a new bot",
+      "Set the bot display name and username (must end with 'bot')",
+      "Copy the Token provided by BotFather",
     ],
   },
 };
